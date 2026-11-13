@@ -1,37 +1,44 @@
+
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-RoomStatus = Literal["available", "occupied", "cleaning", "maintenance"]
 
-
-class RoomBase(BaseModel):
-    room_number: str = Field(min_length=1, max_length=20)
-    room_type: str = Field(min_length=1, max_length=50)
-    floor: int = Field(ge=0)
-    capacity: int = Field(default=2, ge=1)
-    price_per_night: Decimal = Field(gt=0)
-
-
-class RoomCreate(RoomBase):
-    pass
+class RoomCreate(BaseModel):
+    room_number: str = Field(..., min_length=1, max_length=20)
+    room_type: str = Field(..., min_length=1, max_length=50)
+    floor: int = Field(..., ge=0)
+    capacity: int = Field(..., gt=0)
+    price_per_night: Decimal = Field(..., gt=0)
+    status: str = "available"
+    is_active: bool = True
 
 
 class RoomUpdate(BaseModel):
-    room_type: str | None = Field(default=None, min_length=1, max_length=50)
-    floor: int | None = Field(default=None, ge=0)
-    capacity: int | None = Field(default=None, ge=1)
-    price_per_night: Decimal | None = Field(default=None, gt=0)
-    status: RoomStatus | None = None
-    is_active: bool | None = None
+    room_number: Optional[str] = Field(None, min_length=1, max_length=20)
+    room_type: Optional[str] = Field(None, min_length=1, max_length=50)
+    floor: Optional[int] = Field(None, ge=0)
+    capacity: Optional[int] = Field(None, gt=0)
+    price_per_night: Optional[Decimal] = Field(None, gt=0)
+    status: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
-class RoomOut(RoomBase):
-    model_config = ConfigDict(from_attributes=True)
-
+class RoomResponse(BaseModel):
     id: int
+    room_number: str
+    room_type: str
+    floor: int
+    capacity: int
+    price_per_night: Decimal
     status: str
     is_active: bool
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Backward compatibility with the older room router
+RoomOut = RoomResponse
