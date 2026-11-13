@@ -8,9 +8,9 @@ from app.schemas.room import RoomCreate, RoomUpdate
 
 def create_room(db: Session, room_data: RoomCreate):
     room = Room(**room_data.model_dump())
-    db.add(room)
 
     try:
+        db.add(room)
         db.commit()
         db.refresh(room)
         return room
@@ -26,7 +26,7 @@ def get_room(db: Session, room_id: int):
 def get_rooms(
     db: Session,
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 100,
     include_inactive: bool = False,
 ):
     query = db.query(Room)
@@ -34,7 +34,7 @@ def get_rooms(
     if not include_inactive:
         query = query.filter(Room.is_active.is_(True))
 
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(Room.id).offset(skip).limit(limit).all()
 
 
 def update_room(db: Session, room_id: int, room_data: RoomUpdate):
@@ -61,9 +61,10 @@ def delete_room(db: Session, room_id: int):
     room = get_room(db, room_id)
 
     if room is None:
-        return False
+        return None
 
     room.is_active = False
     db.commit()
+    db.refresh(room)
 
-    return True
+    return room

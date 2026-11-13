@@ -1,16 +1,19 @@
-
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+ReservationStatus = Literal[
+    "pending", "confirmed", "cancelled", "checked_in", "checked_out"
+]
+
 
 class ReservationCreate(BaseModel):
     guest_id: int = Field(..., gt=0)
     room_id: int = Field(..., gt=0)
-    check_in: datetime
-    check_out: datetime
+    check_in: date
+    check_out: date
 
     @model_validator(mode="after")
     def validate_dates(self):
@@ -20,23 +23,17 @@ class ReservationCreate(BaseModel):
 
 
 class ReservationUpdate(BaseModel):
-    status: Literal[
-        "pending",
-        "confirmed",
-        "cancelled",
-        "checked_in",
-        "checked_out",
-    ]
+    status: ReservationStatus
 
 
 class ReservationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     guest_id: int
     room_id: int
-    check_in: datetime
-    check_out: datetime
+    check_in: date
+    check_out: date
     total_price: Decimal
     status: str
     created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)

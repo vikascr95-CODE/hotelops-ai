@@ -1,3 +1,5 @@
+from sqlalchemy.exc import IntegrityError
+
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -7,7 +9,7 @@ from app.schemas.guest import GuestCreate, GuestResponse, GuestUpdate
 from app.services import guest_service
 
 router = APIRouter(
-    prefix="/api/v1/guests",
+    prefix="/guests",
     tags=["Guests"],
 )
 
