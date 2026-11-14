@@ -9,6 +9,8 @@ from app.api.auth_routes import router as auth_router
 from app.api.knowledge_routes import router as knowledge_router
 from app.api.knowledge_search_routes import router as knowledge_search_router
 from app.api.triage_routes import router as triage_router
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(
     title="HotelOps AI",
@@ -61,3 +63,9 @@ def health_check():
         "service": "HotelOps AI Backend",
         "version": "1.0.0",
     }
+
+app.mount(
+    "/dashboard",
+    StaticFiles(directory=Path(__file__).parent / "frontend", html=True),
+    name="dashboard",
+)

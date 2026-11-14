@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HotelOps AI Dashboard</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--line:#e2e7ef;--brand:#2f5bea;--low:#6b7686;--normal:#2f5bea;--high:#d97706;--urgent:#dc2626;--ok:#16a34a}
+@media(prefers-color-scheme:dark){:root{--bg:#0f141c;--card:#18202c;--text:#e8edf5;--muted:#93a0b4;--line:#283346;--brand:#6c8cff}}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+header{padding:18px 24px;border-bottom:1px solid var(--line);background:var(--card);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+h1{font-size:20px;margin:0}h2{font-size:16px;margin:0 0 12px}
+header span{color:var(--muted);font-size:13px}
+main{max-width:1150px;margin:0 auto;padding:20px;display:grid;gap:18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.stat b{display:block;font-size:28px}.stat span{color:var(--muted);font-size:13px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.scroll{overflow-x:auto}
+.desc{max-width:340px}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;color:#fff}
+.p-low{background:var(--low)}.p-normal{background:var(--normal)}.p-high{background:var(--high)}.p-urgent{background:var(--urgent)}
+.s{background:transparent;border:1px solid var(--line);color:var(--muted)}
+button{font:inherit;border:0;border-radius:8px;padding:6px 12px;background:var(--brand);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--brand);border:1px solid var(--brand)}
+button:disabled{opacity:.5;cursor:wait}
+textarea,input,select{width:100%;font:inherit;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+textarea{min-height:70px;resize:vertical}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.out{margin-top:12px;padding:12px;border-radius:8px;background:var(--bg);border:1px solid var(--line);white-space:pre-wrap}
+.out:empty{display:none}
+.bar{padding:10px 14px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+.bar:empty{display:none}
+.err{color:var(--urgent)}.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<header><h1>HotelOps AI</h1><span>Service desk dashboard · live from your API</span></header>
+<main>
+  <section class="stats" id="stats"></section>
+
+  <section class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0">Service requests</h2>
+      <div class="row">
+        <select id="filter" style="width:auto">
+          <option value="">All statuses</option>
+          <option>pending</option><option>in_progress</option><option>completed</option><option>cancelled</option>
+        </select>
+        <button class="ghost" id="refresh">Refresh</button>
+      </div>
+    </div>
+    <div class="bar" id="bar"></div>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>Request</th><th>Type</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </section>
+
+  <section class="two">
+    <div class="card">
+      <h2>Try the triage agent</h2>
+      <textarea id="tText" placeholder="e.g. The air conditioner in my room is not working"></textarea>
+      <div class="row" style="margin-top:8px"><button id="tBtn">Suggest triage</button></div>
+      <div class="out" id="tOut"></div>
+    </div>
+    <div class="card">
+      <h2>Ask the hotel knowledge base</h2>
+      <input id="qText" placeholder="e.g. What is the check-out time?">
+      <div class="row" style="margin-top:8px"><button id="qBtn">Ask</button></div>
+      <div class="out" id="qOut"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let requests = [];
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  let data = null;
+  try { data = await r.json(); } catch (e) {}
+  if (!r.ok) {
+    const d = data && data.detail;
+    throw new Error(typeof d === "string" ? d : d ? JSON.stringify(d) : r.statusText);
+  }
+  return data;
+}
+
+function say(el, html, isError) {
+  el.innerHTML = isError ? `<span class="err">${esc(html)}</span>` : html;
+}
+
+function renderStats() {
+  const count = f => requests.filter(f).length;
+  const open = r => !["completed", "cancelled"].includes(r.status);
+  const cards = [
+    ["Total", requests.length],
+    ["Pending", count(r => r.status === "pending")],
+    ["In progress", count(r => r.status === "in_progress")],
+    ["Urgent and open", count(r => r.priority === "urgent" && open(r))],
+    ["Completed", count(r => r.status === "completed")],
+  ];
+  $("#stats").innerHTML = cards.map(([label, n]) =>
+    `<div class="card stat"><b>${n}</b><span>${label}</span></div>`).join("");
+}
+
+function renderRows() {
+  const f = $("#filter").value;
+  const list = requests.filter(r => !f || r.status === f);
+  if (!list.length) {
+    $("#rows").innerHTML = `<tr><td colspan="6" class="muted">No service requests yet.</td></tr>`;
+    return;
+  }
+  $("#rows").innerHTML = list.map(r => {
+    const open = !["completed", "cancelled"].includes(r.status);
+    const next = r.status === "pending" ? ["in_progress", "Start"] : r.status === "in_progress" ? ["completed", "Complete"] : null;
+    return `<tr>
+      <td>${r.id}</td>
+      <td class="desc">${esc(r.description)}<div class="muted">Room ${r.room_id} · Guest ${r.guest_id}</div></td>
+      <td>${esc(r.request_type)}</td>
+      <td><span class="pill p-${esc(r.priority)}">${esc(r.priority)}</span></td>
+      <td><span class="pill s">${esc(r.status)}</span></td>
+      <td><div class="row">
+        ${open ? `<button data-triage="${r.id}">AI triage</button>` : ""}
+        ${next ? `<button class="ghost" data-status="${r.id}:${next[0]}">${next[1]}</button>` : ""}
+      </div></td></tr>`;
+  }).join("");
+}
+
+async function load() {
+  try {
+    requests = await api("/service-requests/?limit=50");
+    renderStats(); renderRows();
+  } catch (e) { say($("#bar"), "Could not load requests: " + e.message, true); }
+}
+
+document.addEventListener("click", async ev => {
+  const btn = ev.target.closest("button");
+  if (!btn) return;
+  if (btn.dataset.triage) {
+    btn.disabled = true;
+    try {
+      const d = await api(`/triage/service-requests/${btn.dataset.triage}/apply`, { method: "POST" });
+      const t = d.triage;
+      say($("#bar"), `<b>Request #${btn.dataset.triage}:</b> ${esc(d.message)} Suggested team: <b>${esc(t.team)}</b> (${Math.round(t.confidence * 100)}% confident).` +
+        (d.changes.length ? `<br>Changes: ${esc(d.changes.join("; "))}` : ""));
+      await load();
+    } catch (e) { say($("#bar"), e.message, true); btn.disabled = false; }
+  }
+  if (btn.dataset.status) {
+    const [id, status] = btn.dataset.status.split(":");
+    btn.disabled = true;
+    try {
+      await api(`/service-requests/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+      say($("#bar"), `Request #${id} is now ${esc(status)}.`);
+      await load();
+    } catch (e) { say($("#bar"), e.message, true); btn.disabled = false; }
+  }
+});
+
+$("#refresh").onclick = load;
+$("#filter").onchange = renderRows;
+
+$("#tBtn").onclick = async () => {
+  const text = $("#tText").value.trim();
+  if (text.length < 3) return say($("#tOut"), "Type at least 3 characters.", true);
+  try {
+    const t = await api("/triage/predict", { method: "POST", body: JSON.stringify({ description: text }) });
+    say($("#tOut"),
+      `Category: <b>${esc(t.category)}</b>\nPriority: <span class="pill p-${esc(t.priority)}">${esc(t.priority)}</span>\nTeam: <b>${esc(t.team)}</b>\nConfidence: ${Math.round(t.confidence * 100)}%` +
+      (t.needs_review ? `\n<span class="err">Low confidence: a human should review this.</span>` : "") +
+      `\n<span class="muted">${esc(t.reasons.join(" "))}</span>`);
+  } catch (e) { say($("#tOut"), e.message, true); }
+};
+
+$("#qBtn").onclick = async () => {
+  const q = $("#qText").value.trim();
+  if (q.length < 3) return say($("#qOut"), "Type at least 3 characters.", true);
+  try {
+    const d = await api("/knowledge/ask", { method: "POST", body: JSON.stringify({ question: q }) });
+    let html = `<b>${esc(d.answer)}</b>\n<span class="muted">${d.grounded ? "Grounded in your documents" : "Not found in your documents"}</span>`;
+    if (d.sources.length) html += "\n\nSources:\n" + d.sources.map(s => `• ${esc(s.document)} (part ${s.chunk_index + 1})`).join("\n");
+    say($("#qOut"), html);
+  } catch (e) { say($("#qOut"), e.message, true); }
+};
+
+load();
+</script>
+</body>
+</html>
