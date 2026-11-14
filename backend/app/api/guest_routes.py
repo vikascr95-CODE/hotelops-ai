@@ -1,7 +1,6 @@
-from sqlalchemy.exc import IntegrityError
-
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
@@ -15,7 +14,7 @@ router = APIRouter(
 
 
 @router.post(
-    "/",
+    "",
     response_model=GuestResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -32,7 +31,7 @@ def create_guest(
         )
 
 
-@router.get("/", response_model=list[GuestResponse])
+@router.get("", response_model=list[GuestResponse])
 def list_guests(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),

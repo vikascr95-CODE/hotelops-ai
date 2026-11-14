@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.schemas.room import RoomCreate, RoomUpdate, RoomResponse
 from app.services import room_service
+from app.core.dependencies import require_roles
 
 
 router = APIRouter(tags=["Rooms"])
@@ -141,6 +142,14 @@ def update_room(
     "/api/v1/rooms/{room_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     include_in_schema=False,
+)
+@router.delete(
+    "/{room_id}",
+    dependencies=[Depends(require_roles("admin"))],
+)
+@router.patch(
+    "/{request_id}/status",
+    dependencies=[Depends(require_roles("admin", "housekeeping"))],
 )
 def delete_room(
     room_id: int,

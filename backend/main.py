@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from app.api.guest_routes import router as guest_router
 from app.api.room_routes import router as room_router
 from app.api.reservation_routes import router as reservation_router
+from app.api.service_request_routes import router as service_request_router
+from app.api.auth_routes import router as auth_router
 
 app = FastAPI(
     title="HotelOps AI",
@@ -18,6 +20,14 @@ app.include_router(
     prefix="/api/v1",
     include_in_schema=False,
 )
+
+app.include_router(service_request_router)
+app.include_router(
+    service_request_router,
+    prefix="/api/v1",
+    include_in_schema=False,
+)
+app.include_router(auth_router)
 
 # Room routes
 app.include_router(room_router)
