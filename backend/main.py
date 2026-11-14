@@ -8,6 +8,7 @@ from app.api.service_request_routes import router as service_request_router
 from app.api.auth_routes import router as auth_router
 from app.api.knowledge_routes import router as knowledge_router
 from app.api.knowledge_search_routes import router as knowledge_search_router
+from app.api.triage_routes import router as triage_router
 
 app = FastAPI(
     title="HotelOps AI",
@@ -40,6 +41,8 @@ app.include_router(room_router)
 app.include_router(reservation_router)
 
 app.include_router(knowledge_search_router)
+
+app.include_router(triage_router)
 
 
 @app.get("/", tags=["Home"])
