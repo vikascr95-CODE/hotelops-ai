@@ -5,6 +5,7 @@ from uuid import uuid4
 from fastapi import HTTPException, UploadFile
 from pypdf import PdfReader
 from sqlalchemy.orm import Session
+from pypdf.errors import PdfReadError
 
 from app.ai.chunking import chunk_text
 from app.models.document import Document, DocumentChunk
@@ -15,12 +16,18 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 def extract_text(file_path: Path, extension: str) -> str:
     if extension == ".txt":
-        return file_path.read_text(encoding="utf-8")
+        try:
+            return file_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise HTTPException(422, "Text files must be UTF-8 encoded.")
 
-    reader = PdfReader(str(file_path))
+    try:
+        reader = PdfReader(str(file_path))
+    except PdfReadError:
+        raise HTTPException(422, "This PDF could not be read. It may be corrupted.")
 
     if reader.is_encrypted:
-        raise ValueError("Password-protected PDFs are not supported.")
+        raise HTTPException(422, "Password-protected PDFs are not supported.")
 
     return "\n".join(page.extract_text() or "" for page in reader.pages)
 
