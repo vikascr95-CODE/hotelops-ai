@@ -1,0 +1,8 @@
+
+Hotel Guest Policy
+
+Check-in time is 1:00 PM.
+Check-out time is 11:00 AM.
+Breakfast is served from 7:30 AM to 9:30 AM.
+Guests can request room service at lunch time and dinner time.
+Cancellations must be made at least 24 hours before check-in.
