@@ -31,6 +31,12 @@ def ask(payload: AskRequest, db: Session = Depends(get_db)):
         for chunk, filename in rows
     ]
 
+        # the same file may have been uploaded more than once: keep one copy of each passage
+    unique = {}
+    for c in chunks:
+        unique.setdefault(c["text"], c)
+    chunks = list(unique.values())
+
     matches = rank_chunks(payload.question, chunks, top_k=payload.top_k)
 
     if not matches:
